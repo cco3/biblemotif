@@ -9,6 +9,7 @@
 import argparse
 import collections
 import math
+import statistics
 import sys
 import time
 
@@ -16,45 +17,6 @@ import pysblgnt
 
 BOOKS = [
     'All',
-    'Gen',
-    'Exo',
-    'Lev',
-    'Num',
-    'Deu',
-    'Jos',
-    'Jdg',
-    'Rut',
-    '1Sa',
-    '2Sa',
-    '1Ki',
-    '2Ki',
-    '1Ch',
-    '2Ch',
-    'Ezr',
-    'Neh',
-    'Est',
-    'Job',
-    'Psa',
-    'Pro',
-    'Ecc',
-    'Sos',
-    'Isa',
-    'Jer',
-    'Lam',
-    'Eze',
-    'Dan',
-    'Hos',
-    'Joe',
-    'Amo',
-    'Oba',
-    'Jon',
-    'Mic',
-    'Nah',
-    'Hab',
-    'Zep',
-    'Hag',
-    'Zec',
-    'Mal',
     'Mat',
     'Mar',
     'Luk',
@@ -132,14 +94,45 @@ def calc_atfs(data):
         value: augmented term frequency
 
     """
-    for book in data:
-        book['atfs'] = collections.defaultdict(collections.Counter)
+    all_atfs = collections.defaultdict(list)
+    for book in data[1:]:
+        atfs = {}
         freqs = book['freqs']
         # Uncomment the following line for stopword candidates
         #print(freqs.most_common(3))
         _, max_freq = freqs.most_common(1)[0]
         for lex, freq in freqs.items():
-            book['atfs'][lex] = math.log2(freq / max_freq)
+            atf = math.log2(1 + freq / max_freq)
+            atfs[lex] = atf
+            all_atfs[lex].append(atf)
+        book['atfs'] = atfs
+
+    # Average atfs over all the books
+    avg_atfs = {}
+    for lex, atfs in all_atfs.items():
+        avg_atfs[lex] = 1 - statistics.mean(all_atfs[lex])
+    data[0]['imatfs'] = avg_atfs
+
+
+def calc_scores(data, terms):
+    r"""Get final scores augmented term frequencies
+
+    score = \sum{atf * imatf / N}
+
+    freqs
+        key: lexical form of word
+        value: score
+
+    """
+    all_atfs = collections.defaultdict(list)
+    for book in data[1:]:
+        score = 0
+        for term in terms:
+            #print(book['name'], term, book['atfs'].get(term, 0),
+            #      data[0]['imatfs'][term])
+            score += book['atfs'].get(term, 0) * data[0]['imatfs'][term]
+        score /= len(terms)
+        book['score'] = score
 
 
 def main():
@@ -149,6 +142,7 @@ def main():
                                      'multiple json files')
     parser.add_argument('--stopwords', dest='stopwords',
                         help='input stopwords.txt')
+    parser.add_argument('motif_terms', help='input motif.txt')
     args = parser.parse_args()
 
     # Read the stopwords
@@ -159,6 +153,13 @@ def main():
                 line = line.strip()
                 stopwords.append(line)
 
+    # Read the motif terms
+    motif_terms = []
+    with open(args.motif_terms) as f:
+        for line in f:
+            line = line.strip()
+            motif_terms.append(line)
+
     # This data structure stores all our calculations
     # The first level of keys is the book number, where
     # * 0 represents all books
@@ -166,11 +167,17 @@ def main():
     # * 27 represents Rev
     # The second level of keys are the various types of data for that book
     # e.g. freqs, maxfreq, etc.
-    data = [{} for i in range(28)]
+    data = [{
+        'name': BOOKS[i],
+    } for i in range(28)]
     with Timer('Counting words in the NT'):
         calc_freqs(data, stopwords)
     with Timer('Calculating augmented term frequencies'):
         calc_atfs(data)
+    with Timer('Calculating final scores '):
+        calc_scores(data, motif_terms)
+    for book in data[1:]:
+        print('{}: {}'.format(book['name'], book['score']))
 
     return 0
 
