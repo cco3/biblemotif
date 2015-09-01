@@ -14,6 +14,76 @@ import time
 
 import pysblgnt
 
+BOOKS = [
+    'All',
+    'Gen',
+    'Exo',
+    'Lev',
+    'Num',
+    'Deu',
+    'Jos',
+    'Jdg',
+    'Rut',
+    '1Sa',
+    '2Sa',
+    '1Ki',
+    '2Ki',
+    '1Ch',
+    '2Ch',
+    'Ezr',
+    'Neh',
+    'Est',
+    'Job',
+    'Psa',
+    'Pro',
+    'Ecc',
+    'Sos',
+    'Isa',
+    'Jer',
+    'Lam',
+    'Eze',
+    'Dan',
+    'Hos',
+    'Joe',
+    'Amo',
+    'Oba',
+    'Jon',
+    'Mic',
+    'Nah',
+    'Hab',
+    'Zep',
+    'Hag',
+    'Zec',
+    'Mal',
+    'Mat',
+    'Mar',
+    'Luk',
+    'Joh',
+    'Act',
+    'Rom',
+    '1Co',
+    '2Co',
+    'Gal',
+    'Eph',
+    'Php',
+    'Col',
+    '1Th',
+    '2Th',
+    '1Ti',
+    '2Ti',
+    'Tit',
+    'Phm',
+    'Heb',
+    'Jam',
+    '1Pe',
+    '2Pe',
+    '1Jo',
+    '2Jo',
+    '3Jo',
+    'Jde',
+    'Rev',
+]
+
 
 class Timer:
     def __init__(self, start_text):
@@ -31,7 +101,7 @@ class Timer:
         print('{:0.2f} seconds'.format(self.interval))
 
 
-def calc_freqs(data):
+def calc_freqs(data, stopwords):
     """Create a frequency map out of the new testament
 
     freqs
@@ -45,8 +115,11 @@ def calc_freqs(data):
         book = data[i + 1]
         book['freqs'] = collections.Counter()
         for row in pysblgnt.morphgnt_rows(i + 1):
-            all_books['freqs'][row['lemma']] += 1
-            book['freqs'][row['lemma']] += 1
+            lex = row['lemma']
+            if lex in stopwords:
+                continue
+            all_books['freqs'][lex] += 1
+            book['freqs'][lex] += 1
 
 
 def calc_atfs(data):
@@ -62,10 +135,11 @@ def calc_atfs(data):
     for book in data:
         book['atfs'] = collections.defaultdict(collections.Counter)
         freqs = book['freqs']
+        # Uncomment the following line for stopword candidates
+        #print(freqs.most_common(3))
         _, max_freq = freqs.most_common(1)[0]
         for lex, freq in freqs.items():
             book['atfs'][lex] = math.log2(freq / max_freq)
-
 
 
 def main():
@@ -73,7 +147,17 @@ def main():
     # Parse arguments
     parser = argparse.ArgumentParser(description='Parse qev.txt and output to '
                                      'multiple json files')
+    parser.add_argument('--stopwords', dest='stopwords',
+                        help='input stopwords.txt')
     args = parser.parse_args()
+
+    # Read the stopwords
+    stopwords = []
+    if args.stopwords:
+        with open(args.stopwords) as f:
+            for line in f:
+                line = line.strip()
+                stopwords.append(line)
 
     # This data structure stores all our calculations
     # The first level of keys is the book number, where
@@ -84,7 +168,7 @@ def main():
     # e.g. freqs, maxfreq, etc.
     data = [{} for i in range(28)]
     with Timer('Counting words in the NT'):
-        calc_freqs(data)
+        calc_freqs(data, stopwords)
     with Timer('Calculating augmented term frequencies'):
         calc_atfs(data)
 
