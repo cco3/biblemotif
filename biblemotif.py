@@ -183,6 +183,8 @@ def calc_atfs(data):
         _, max_freq = freqs.most_common(1)[0]
         for lex, freq in freqs.items():
             atf = math.log2(1 + freq / max_freq)
+            if lex == 'sonofgod':
+                print(book['name'], 'sonofgod', freq, max_freq)
             atfs[lex] = atf
             all_atfs[lex].append(atf)
         book['atfs'] = atfs
@@ -208,8 +210,8 @@ def calc_scores(data, terms):
     for book in data[1:]:
         score = 0
         for term in terms:
-            #print(book['name'], term, book['atfs'].get(term, 0),
-            #      data[0]['imatfs'][term])
+            print(book['name'], term, book['atfs'].get(term, 0),
+                  data[0]['imatfs'][term])
             score += book['atfs'].get(term, 0) * data[0]['imatfs'][term]
         score /= len(terms)
         book['score'] = score

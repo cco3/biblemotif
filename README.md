@@ -4,4 +4,9 @@
     pip3 install pysblgnt --user
 
 
-== Running ==
+== Usage ==
+
+./biblemotif.py \
+    --stopwords examples/stopwords.txt \
+    --tokens examples/tokens.txt \
+    examples/king_motif.txt
